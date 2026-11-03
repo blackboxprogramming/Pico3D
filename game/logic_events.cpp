@@ -85,7 +85,7 @@ void logic_events() {
         close_npc = -1;
         if (player_area != AREA_OUTSKIRTS) {
             for (int i = 0; i < MAX_QUEST_NPCS; i++) {
-                if (npc_quest_list[MAX_QUEST_NPCS].status != -1) {
+                if (npc_quest_list[i].status != -1) {
                     //we only load npcs if they are close to the player
                     int32_t distancex = npc_quest_list[i].x - camera_position_fixed_point[0];
                     if (distancex < 0) {

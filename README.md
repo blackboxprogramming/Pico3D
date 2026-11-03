@@ -16,14 +16,19 @@ It contains a small city as well as an city outskirts featuring a small shooter 
 
 If all you want are .uf2 binaries, check the releases for the newest version.
 
-You will need the [PicoSystem SDK](https://github.com/pimoroni/picosystem) and the [Pico SDK](https://github.com/raspberrypi/pico-sdk).  
+You will need CMake, the Arm GNU toolchain, the [PicoSystem SDK v2.0.0](https://github.com/pimoroni/picosystem/tree/v2.0.0), and the [Pico SDK 2.3.1](https://github.com/raspberrypi/pico-sdk/tree/2.3.1) with its submodules initialized.
 
-Create and enter a build folder and use the following command to configure Cmake:
-```
-cmake -DPICO_SDK_PATH=/path/to/pico-sdk -DPICOSYSTEM_DIR=/path/to/picosystem path/to/Pico3D
+From the Pico3D checkout, configure and build for the PicoSystem board:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DPICO_SDK_PATH=/path/to/pico-sdk \
+  -DPICOSYSTEM_DIR=/path/to/picosystem \
+  -DPICO_BOARD=pimoroni_picosystem
+cmake --build build
 ```
 
-and then use `make` to build a .uf2 file.
+The firmware is written to `build/pico3d.uf2`. To build the Gamescom variant, add `-DGAMESCOM=ON` at configuration time and use a separate build directory.
 
 
 ## Blender Tutorials

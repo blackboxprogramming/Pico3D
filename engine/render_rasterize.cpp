@@ -24,7 +24,7 @@ uint8_t animated_texture_counter = 0;
 #ifdef RASTERIZER_IN_FLASH
 #define RASTERIZE_SECTION
 #else
-#include "pico/platform.h"
+#include "pico.h"
 #define RASTERIZE_SECTION __scratch_x("render_rasterize")
 #endif
 

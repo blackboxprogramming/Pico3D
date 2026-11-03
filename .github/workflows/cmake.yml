@@ -4,83 +4,68 @@ on:
   push:
   pull_request:
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: ${{matrix.name}}
+    name: CMake Build (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
-            name: CMake Build
-            cache-key: picosystem
-            cmake-args: -DPICO_SDK_PATH=$GITHUB_WORKSPACE/pico-sdk -DPICOSYSTEM_DIR=$GITHUB_WORKSPACE/picosystem -DPICO_BOARD=pimoroni_picosystem -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-            apt-packages: ccache gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3-setuptools
-
-    runs-on: ${{matrix.os}}
-
-    env:
-      RELEASE_FILE: ${{github.event.repository.name}}-${{github.sha}}
+          - variant: standard
+            gamescom: 'OFF'
+          - variant: gamescom
+            gamescom: 'ON'
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
-      with:
-        path: code
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: code
+          persist-credentials: false
 
-    # PicoSystem SDK
-    - name: Checkout PicoSystem SDK
-      uses: actions/checkout@v3
-      with:
-        repository: pimoroni/picosystem
-        path: picosystem
-        submodules: true 
+      - name: Checkout PicoSystem SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pimoroni/picosystem
+          ref: 9a26b2adbebaf4cbf0cb646fa542304202996cb4 # v2.0.0
+          path: picosystem
+          persist-credentials: false
 
-    # Pico SDK
-    - name: Checkout Pico SDK
-      uses: actions/checkout@v3
-      with:
-        repository: raspberrypi/pico-sdk
-        path: pico-sdk
-        submodules: true
+      - name: Checkout Pico SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: 079c6f39023649b154152db30f1d781e884879bc # 2.3.1
+          path: pico-sdk
+          submodules: true
+          persist-credentials: false
 
-    - name: Cache
-      uses: actions/cache@v3
-      with:
-        path: /home/runner/.ccache
-        key: ccache-${{matrix.cache-key}}-${{github.ref}}-${{github.sha}}
-        restore-keys: |
-          ccache-${{matrix.cache-key}}-${{github.ref}}
-          ccache-${{matrix.cache-key}}-
+      - name: Install Arm toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib python3-setuptools
 
-    # Linux deps
-    - name: Install deps
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt update && sudo apt install ${{matrix.apt-packages}}
+      - name: Build PicoSystem firmware
+        run: |
+          cmake -S code -B build -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk" \
+            -DPICOSYSTEM_DIR="$GITHUB_WORKSPACE/picosystem" \
+            -DPICO_BOARD=pimoroni_picosystem \
+            -DGAMESCOM=${{ matrix.gamescom }}
+          cmake --build build --parallel 2
+          test -s build/pico3d.uf2
+          test -s build/pico3d.elf
 
-    - name: Create Build Environment
-      run: |
-        cmake -E make_directory ${{runner.workspace}}/build
-
-    - name: Configure CMake (Examples)
-      shell: bash
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE/code -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCPACK_PACKAGE_FILE_NAME=${{env.RELEASE_FILE}} ${{matrix.cmake-args}}
-
-    - name: Build
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      run: |
-        ccache --zero-stats || true
-        cmake --build . --config $BUILD_TYPE -j 2
-        ccache --show-stats || true
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{env.RELEASE_FILE}}
-        path: ${{runner.workspace}}/build/
+      - name: Upload firmware
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ github.event.repository.name }}-${{ matrix.variant }}-${{ github.sha }}
+          path: |
+            build/pico3d.uf2
+            build/pico3d.elf
+          if-no-files-found: error
